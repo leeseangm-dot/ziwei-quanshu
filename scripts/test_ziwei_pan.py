@@ -15,6 +15,7 @@ B. **交叉对照**（可选）：若本机装有 node 与 iztro，则随机抽�
 """
 import os
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -203,6 +204,52 @@ def test_double_star_pairs():
     check("地空在亥逆6=巳", find("地空"), ["巳"])
 
 
+def test_true_solar():
+    """真太阳时校正：经度时差 + 均时差，以及跨时辰重排的端到端影响。
+
+    回归锚点：成都（东经 104.066°）1994-07-28 钟表 13:30。
+    """
+    # 经度时差：每度 4 分钟
+    check("经度时差 104.066°E",
+          round(zp.true_solar_shift_minutes(104.066, 1994, 7, 28, 13), 1), -70.3)
+    check("经度时差 120°E 为 0",
+          round(zp.true_solar_shift_minutes(120.0, 1994, 7, 28, 13)
+                - zp.equation_of_time_minutes(1994, 7, 28, 13), 6), 0.0)
+
+    # 均时差量级：全年应在 -15 ~ +17 分之间
+    eots = [zp.equation_of_time_minutes(2020, m, 15, 12) for m in range(1, 13)]
+    check("均时差全年极值在合理区间",
+          all(-15.0 < e < 17.0 for e in eots), True)
+
+    # 无经度时不校正（向后兼容）
+    r_none = zp.build(date(1994, 7, 28), hour=13, minute=30, sex="男")
+    check("无经度仍按钟表时定未时", r_none["info"]["hour_zhi"], "未")
+
+    # 给出经度 → 跨时辰：未时 → 午时，命宫/身宫/命主全变
+    r_ts = zp.build(date(1994, 7, 28), hour=13, minute=30, sex="男",
+                    longitude=104.066)
+    check("真太阳时定时辰为午", r_ts["info"]["hour_zhi"], "午")
+    check("真太阳时命宫在丑", r_ts["info"]["ming_zhi"], "丑")
+    check("真太阳时身宫在丑", r_ts["info"]["shen_zhi"], "丑")
+    check("真太阳时五行局仍为水二局", r_ts["meta"]["ju"], 2)
+    # 命主由命宫地支定：丑 -> 巨门（对照盘为子 -> 贪狼）
+    txt = zp.format_report(r_ts)
+    check("真太阳时命主为巨门", "命主：巨门" in txt, True)
+    check("真太阳时四化为甲年（廉破武阳）", "化忌：太阳" in txt, True)
+
+    # 关闭校正应回到钟表时口径
+    r_off = zp.build(date(1994, 7, 28), hour=13, minute=30, sex="男",
+                     longitude=104.066, true_solar=False)
+    check("--no-true-solar 时不校正", r_off["info"]["hour_zhi"], "未")
+    check("--no-true-solar 命宫在子", r_off["info"]["ming_zhi"], "子")
+
+    # 跨时辰必须在警告中明示
+    check("跨时辰有警告",
+          any("跨时辰" in w for w in r_ts["warnings"]), True)
+    check("校正明细有警告",
+          any("真太阳时校正" in w for w in r_ts["warnings"]), True)
+
+
 # ---------------------------------------------------------------------------
 # B. 与 iztro 交叉对照
 # ---------------------------------------------------------------------------
@@ -360,6 +407,18 @@ def test_cross_iztro(rounds=40, seed=20260928):
         print("  交叉对照通过：%d 个样本盘的命身、五行局、十四主星全部一致" % len(cases))
 
 
+def test_readme_assertion_count():
+    """README 承诺的断言数必须与实际相符（与 test_ziwei_html.py 同一自检思路）。"""
+    readme = os.path.join(os.path.dirname(HERE), "README.md")
+    if not os.path.exists(readme):
+        return
+    txt = open(readme, encoding="utf-8").read()
+    m = re.search(r"test_ziwei_pan\.py\s*#\s*经典口诀锚点（(\d+) 项断言）", txt)
+    check("README 标注了排盘测试断言数", bool(m), True)
+    if m:
+        check("README 排盘断言数与实际一致", int(m.group(1)), CHECKS[0] + 1)
+
+
 def main():
     argv = sys.argv[1:]
     print("A. 经典口诀锚点")
@@ -375,6 +434,8 @@ def main():
     test_nandou_yingqi()
     test_baseline_chart()
     test_double_star_pairs()
+    test_true_solar()
+    test_readme_assertion_count()
 
     if "--cross" in argv:
         print("B. 与 iztro 交叉对照")

@@ -365,6 +365,26 @@ def solar_term_beijing(year, longitude):
 
 
 # ---------------------------------------------------------------------------
+# 真太阳时（均时差 + 经度时差）
+# ---------------------------------------------------------------------------
+
+def equation_of_time_minutes(year, month, day, hour=12):
+    """均时差 EoT（分）。NOAA 简化式，精度约 ±0.5 分，足够判定时辰边界。"""
+    cum = [0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    doy = cum[month] + day
+    gamma = 2.0 * math.pi / 365.0 * (doy - 1 + (hour - 12) / 24.0)
+    return 229.18 * (0.000075 + 0.001868 * math.cos(gamma)
+                     - 0.032077 * math.sin(gamma)
+                     - 0.014615 * math.cos(2 * gamma)
+                     - 0.040849 * math.sin(2 * gamma))
+
+
+def true_solar_shift_minutes(longitude, year, month, day, hour=12):
+    """总校正量（分）= 经度时差 + 均时差。东经小于 120 度为负。"""
+    return (float(longitude) - 120.0) * 4.0 + equation_of_time_minutes(year, month, day, hour)
+
+
+# ---------------------------------------------------------------------------
 # 定朔（Meeus 第 49 章）
 # ---------------------------------------------------------------------------
 
@@ -975,10 +995,55 @@ def resolve(birth_solar, hour, minute, sex, leap_policy, late_zishi, year_divide
     }
 
 
+def apply_true_solar(birth_solar, hour, minute, longitude, warnings):
+    """依经度与均时差把钟表时换算为真太阳时。
+
+    返回 (新日期, 新时, 新分, 校正量分钟)。hour 为 None（时辰未知）时原样返回。
+    同时把校正结果与「是否跨时辰」写入 warnings。
+    """
+    if longitude is None or hour is None:
+        return birth_solar, hour, minute, None
+
+    shift = true_solar_shift_minutes(longitude, birth_solar.year,
+                                     birth_solar.month, birth_solar.day, hour)
+    total = hour * 60 + (minute or 0) + shift
+    day_delta, rem = divmod(int(round(total)), 1440)
+    new_date = birth_solar + timedelta(days=day_delta)
+    new_hour, new_minute = divmod(rem, 60)
+
+    old_zhi = ZHI[((hour + 1) // 2) % 12]
+    new_zhi = ZHI[((new_hour + 1) // 2) % 12]
+
+    warnings.append(
+        "真太阳时校正：东经%.4f°（相对120°E %+.1f分）＋均时差%+.1f分＝%+.1f分；"
+        "钟表时 %02d:%02d → 真太阳时 %02d:%02d"
+        % (longitude, (float(longitude) - 120.0) * 4.0,
+           equation_of_time_minutes(birth_solar.year, birth_solar.month, birth_solar.day, hour),
+           shift, hour, minute or 0, new_hour, new_minute))
+
+    if old_zhi != new_zhi:
+        warnings.append(
+            "★ 校正后跨时辰：%s时 → %s时。全盘命身宫、五行局、紫微与安星俱变，"
+            "请以真太阳时为准重排（本脚本已按真太阳时排定）" % (old_zhi, new_zhi))
+    else:
+        warnings.append("校正后时辰不变（仍为%s时），盘面不需重排" % new_zhi)
+
+    # 接近时辰边界提示（距边界 15 分内）
+    m = new_hour * 60 + new_minute
+    for bound in (60 * 23 + 0, 60 * 1, 60 * 3, 60 * 5, 60 * 7, 60 * 9,
+                  60 * 11, 60 * 13, 60 * 15, 60 * 17, 60 * 19, 60 * 21, 60 * 23):
+        if abs(m - bound) <= 15:
+            warnings.append("真太阳时距时辰边界（%02d:00）仅 %d 分，生时须格外复核——"
+                            "原书云「若差讹则命不准矣」" % (bound // 60, abs(m - bound)))
+            break
+
+    return new_date, new_hour, new_minute, shift
+
+
 def build(birth_solar, hour=None, minute=None, shichen=None, sex="男",
           place=None, leap_policy="next-month", late_zishi="next-day",
           daxian_convention="quanshu", target_year=None, deceased_year=None,
-          year_divide="exact", now=None):
+          year_divide="exact", now=None, longitude=None, true_solar=True):
     if hour is None and shichen:
         hour, minute = SHICHEN_MID[shichen]
     elif hour is None:
@@ -986,8 +1051,13 @@ def build(birth_solar, hour=None, minute=None, shichen=None, sex="男",
     if minute is None:
         minute = 0
 
+    warnings = []
+    if longitude is not None and hour is not None and true_solar:
+        birth_solar, hour, minute, _ = apply_true_solar(
+            birth_solar, hour, minute, longitude, warnings)
+
     info = resolve(birth_solar, hour, minute, sex, leap_policy, late_zishi, year_divide)
-    warnings = list(info["warnings"])
+    warnings.extend(info["warnings"])
 
     is_male = sex == "男"
     is_yang = GAN.index(info["year_gan"]) % 2 == 0
@@ -1190,6 +1260,12 @@ def build_parser():
     p.add_argument("--shichen", choices=list(ZHI), help="时辰地支")
     p.add_argument("--sex", required=True, choices=("男", "女"), help="性别（必填）")
     p.add_argument("--place", help="出生地（仅展示）")
+    p.add_argument("--longitude", type=float, help="出生地东经（度，正为东经）。"
+                   "给出后自动把 --hour 从钟表时换算为真太阳时再定时辰；"
+                   "不给出则按钟表时直接定时辰（会有跨时辰误差风险）")
+    p.add_argument("--no-true-solar", action="store_false", dest="true_solar",
+                   default=True,
+                   help="关闭真太阳时校正，直接按钟表时定时辰（与不做校正的外部软体对齐）")
     p.add_argument("--leap-policy", choices=("next-month", "split15"),
                    default="next-month", dest="leap_policy",
                    help="闰月处理：next-month=全书作下一月（默认）；split15=前十五日作本月")
@@ -1252,6 +1328,7 @@ def run(argv=None):
         result = build(solar_date, hour=hour, minute=minute, shichen=args.shichen,
                        sex=args.sex, place=args.place, leap_policy=args.leap_policy,
                        late_zishi=args.late_zishi, daxian_convention=args.daxian,
+                       longitude=args.longitude, true_solar=args.true_solar,
                        year_divide=args.year_divide,
                        target_year=args.target_year, deceased_year=args.deceased_year)
     except ValueError as exc:
