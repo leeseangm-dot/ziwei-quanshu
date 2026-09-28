@@ -20,11 +20,11 @@
 
 ```bash
 # 安装到全局（所有项目都能用）
-git clone https://github.com/jinchenma94/ziwei-quanshu ~/.workbuddy/skills/ziwei-quanshu
+git clone https://github.com/leeseangm-dot/ziwei-quanshu.git ~/.workbuddy/skills/ziwei-quanshu
 
 # 或安装到当前项目（项目级，团队共享）
 mkdir -p .workbuddy/skills
-git clone https://github.com/jinchenma94/ziwei-quanshu .workbuddy/skills/ziwei-quanshu
+git clone https://github.com/leeseangm-dot/ziwei-quanshu.git .workbuddy/skills/ziwei-quanshu
 ```
 
 ## 使用

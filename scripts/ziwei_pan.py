@@ -1122,7 +1122,8 @@ def format_report(r):
     # 应期（南北斗）
     is_yang = GAN.index(info["year_gan"]) % 2 == 0
     is_male = r["sex"] == "男"
-    if (is_yang and not is_male) or ((not is_yang) and is_male):
+    # 《全书》卷三：阳男阴女南斗为福（下五年/下半年）；阴男阳女北斗为福（上五年/上半年）
+    if (is_yang and is_male) or ((not is_yang) and (not is_male)):
         lines.append("- 南北斗应期：南斗为福（大限断下五年、小限断下半年）")
     else:
         lines.append("- 南北斗应期：北斗为福（大限断上五年、小限断上半年）")
