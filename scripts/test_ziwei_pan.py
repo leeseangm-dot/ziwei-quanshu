@@ -15,6 +15,7 @@ B. **交叉对照**（可选）：若本机装有 node 与 iztro，则随机抽�
 """
 import os
 import random
+import shutil
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -248,19 +249,53 @@ JU_TO_IZTRO = {2: "水二局", 3: "木三局", 4: "金四局", 5: "土五局", 6
 TIME_INDEX_OF_ZHI = {z: i for i, z in enumerate("子丑寅卯辰巳午未申酉戌亥")}
 
 
+def _find_node():
+    """定位 node 可执行文件。
+
+    优先级：环境变量 NODE_BIN > PATH > 常见安装位置。
+    不硬编码任何用户目录，保证本仓库在任何机器上可直接使用。
+    """
+    env_node = os.environ.get("NODE_BIN")
+    if env_node and os.path.exists(env_node):
+        return env_node
+
+    found = shutil.which("node")
+    if found:
+        return found
+
+    # 跨平台的常见位置（不绑定具体用户名）
+    import glob
+    patterns = [
+        os.path.expanduser("~/.workbuddy/binaries/node/versions/*/node"),
+        os.path.expanduser("~/.workbuddy/binaries/node/versions/*/node.exe"),
+        "/usr/local/bin/node", "/usr/bin/node",
+        r"C:\Program Files\nodejs\node.exe",
+    ]
+    for pat in patterns:
+        hits = sorted(glob.glob(pat))
+        if hits:
+            return hits[-1]          # 取版本号最大的
+    return None
+
+
+def _iztro_workspace():
+    """定位用于交叉对照的 node modules 工作目录。
+
+    环境变量 IZTRO_WORKSPACE 优先；否则退回用户主目录下的默认位置。
+    """
+    env_ws = os.environ.get("IZTRO_WORKSPACE")
+    if env_ws:
+        return env_ws
+    return os.path.expanduser("~/.workbuddy/binaries/node/workspace")
+
+
 def test_cross_iztro(rounds=40, seed=20260928):
-    node = os.environ.get("NODE_BIN")
+    node = _find_node()
     if not node:
-        for cand in (r"C:\Users\Sean\.workbuddy\binaries\node\versions\22.22.2-3\node.exe",):
-            if os.path.exists(cand):
-                node = cand
-                break
-    if not node:
-        print("  [跳过] 未找到 node，交叉对照不执行")
+        print("  [跳过] 未找到 node，交叉对照不执行（可设 NODE_BIN 指定）")
         return
 
-    workspace = os.environ.get(
-        "IZTRO_WORKSPACE", r"C:\Users\Sean\.workbuddy\binaries\node\workspace")
+    workspace = _iztro_workspace()
     js_path = os.path.join(workspace, "_cross_iztro.js")
     with open(js_path, "w", encoding="utf-8") as fh:
         fh.write(CROSS_JS)
