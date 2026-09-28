@@ -366,6 +366,23 @@ def test_md_html_parity():
         ok("%s 两处一致" % label, val in md and val in h, "val=%s" % val)
 
 
+# ---------------------------------------------------------------------------
+# 9. 文档一致性：README 承诺的断言数必须与实际相符
+# ---------------------------------------------------------------------------
+
+def test_readme_assertion_count():
+    readme = os.path.join(os.path.dirname(HERE), "README.md")
+    if not os.path.exists(readme):
+        return
+    txt = open(readme, encoding="utf-8").read()
+    m = re.search(r"test_ziwei_html\.py\s*#\s*HTML 渲染回归（(\d+) 项断言）", txt)
+    ok("README 标注了 HTML 测试断言数", bool(m), "未找到断言数标注")
+    if m:
+        claimed = int(m.group(1))
+        actual = CHECKS[0] + 1        # +1：本条断言自身
+        check("README 断言数与实际一致", claimed, actual)
+
+
 def main():
     print("紫微斗数 HTML 渲染器回归测试")
     print("-" * 56)
@@ -385,12 +402,13 @@ def main():
     test_lunar_num()
     print("8. md 文本 ↔ HTML 命盘一致性")
     test_md_html_parity()
+    print("9. 文档一致性（README 断言数）")
+    test_readme_assertion_count()
     print("-" * 56)
     print("共 %d 项断言，失败 %d 项" % (CHECKS[0], len(FAILS)))
     for f in FAILS:
         print("  ✗ %s" % f)
     return 1 if FAILS else 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

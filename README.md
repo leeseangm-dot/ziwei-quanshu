@@ -245,12 +245,12 @@ ziwei-quanshu/
 ```bash
 python3 scripts/test_ziwei_pan.py            # 经典口诀锚点（116 项断言）
 python3 scripts/test_ziwei_pan.py --cross    # 另加与外部排盘库的交叉对照
-python3 scripts/test_ziwei_html.py           # HTML 渲染回归（162 项断言）
+python3 scripts/test_ziwei_html.py           # HTML 渲染回归（184 项断言）
 ```
 
 `test_ziwei_html.py` 覆盖：4×4 宫格方位、十二宫齐全、主星/辅佐/杂曜分级、
 庙陷与四化标记、判读槽位解析与注入、markdown→HTML 转义、渲染确定性、
-无外部资源（离线可用）、农历月/日中文写法。
+无外部资源（离线可用）、农历月/日中文写法，以及 **md 文本 ↔ HTML 命盘一致性**。
 
 排盘算法以《全书》安星诀逐条实现，并用 1200+ 随机样本盘与外部独立排盘库（iztro）比对：
 **命宫、身宫、五行局、紫微天府、十四主星逐一一致**。农历换算另与权威历法库
