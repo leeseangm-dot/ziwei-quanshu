@@ -19,6 +19,22 @@ argument-hint: "[出生信息 / 主题 / 格局名 / 宫位 / 章节号]"
 
 ---
 
+## 交付物（强制）
+
+> **本技能的最终交付物是一个 HTML 命盘文件，不是一段 markdown 文本。**
+
+排盘判读完成后，**必须**调用 `scripts/ziwei_pan.py` 生成 `.html` 命盘文件，
+再用 `present_files` 交付给用户。理由：
+
+- 命盘是 4×4 的空间结构，markdown 表格无法正确表达十二宫方位与三方四正；
+- HTML 自带四化配色、庙陷标注、大限岁数、当限高亮、打印样式（可直接另存 PDF）；
+- 判读结论按五个固定槽位注入页面，用户不必在长文中翻找。
+
+**禁止**只输出 markdown 报告就结束。若因环境限制确实写不了文件，
+退化为 `--stdout-html` 把 HTML 打到 stdout，**仍不得退化为 markdown**。
+
+---
+
 ## 如何使用本技能
 
 - **要排盘/断盘** — 走下方「三阶段工作流」
@@ -35,8 +51,10 @@ argument-hint: "[出生信息 / 主题 / 格局名 / 宫位 / 章节号]"
 
 排盘与判盘过程中，需要查阅以下文件获取详细规则、表格与口径：
 
-- `scripts/ziwei_pan.py` — **排盘计算脚本**（确认信息后必须先跑；命身宫、五行局、紫微天府、十四主星、诸星、四化、庙陷、大限小限童限均以脚本 stdout 为准）
+- `scripts/ziwei_pan.py` — **排盘计算脚本**（确认信息后必须先跑；命身宫、五行局、紫微天府、十四主星、诸星、四化、庙陷、大限小限童限均以脚本 stdout 为准；**默认输出 HTML 命盘文件**）
+- `scripts/ziwei_html.py` — **HTML 命盘渲染器**（被 `ziwei_pan.py --format html` 调用；零依赖，判读 markdown 按 `## 标题` 注入五个槽位）
 - `scripts/test_ziwei_pan.py` — 排盘回归测试（含与外部排盘库的交叉对照）
+- `scripts/test_ziwei_html.py` — HTML 渲染回归测试（格位、槽位注入、确定性、无外部资源）
 - `references/paipan-rules.md` — **排盘规则速查**，与脚本同一口径；含三处流派分歧说明与紫微定位校验表
 - `glossary.md` — 全部术语定义
 - `patterns.md` — 判读模式，含步骤与权衡
@@ -134,6 +152,9 @@ argument-hint: "[出生信息 / 主题 / 格局名 / 宫位 / 章节号]"
 四化、庙旺落陷、大限小限童限、流年**均以脚本 stdout 为准**。
 **禁止口算、禁止凭记忆推命宫、禁止自行覆盖脚本结果。**
 
+> 脚本**默认输出 HTML 命盘文件**（见下方「生成 HTML 命盘」）。
+> 若只想先看排盘文本核对，加 `--format md`；判读完成后按第三阶段第 11 步交付 HTML。
+
 ```bash
 # 阳历 + 具体时刻
 python3 scripts/ziwei_pan.py --solar 1990-05-15 --hour 12:00 --sex 男
@@ -172,6 +193,11 @@ python3 scripts/ziwei_pan.py --solar 1990-05-15 --hour 12:00 --sex 男 \
 | 断事年份 | `--year YYYY` | 可选，默认当年 |
 | 已故年份 | `--deceased-year YYYY` | 可选 |
 | 排盘口径 | `--daxian` / `--leap-policy` / `--year-divide` | 见下 |
+| 输出格式 | `--format html\|md\|both` | **默认 `html`**（写文件）；`md` 打到 stdout |
+| HTML 输出路径 | `--out <路径>` | 默认写入当前目录，按命主自动命名 |
+| 判读注入 | `--interpret <判读.md>` | 按 `## 标题` 分节注入五个槽位 |
+| HTML 打到 stdout | `--stdout-html` | 不写文件，用于重定向 |
+| 页面标题 | `--title "…"` | 默认自动生成 |
 
 阳历、农历至少要有一个。本机需要 `python3`，**无 pip 依赖**。
 
@@ -186,11 +212,59 @@ python3 scripts/ziwei_pan.py --solar 1990-05-15 --hour 12:00 --sex 男 \
 > 与外部工具对盘时，**必须同时切换这三个开关**，否则命身宫或星曜会整体错位。
 > 详细口径见 `references/paipan-rules.md`。
 
-### 使用 stdout
+### 生成 HTML 命盘（默认行为）
 
-把脚本打印的 `## 输入` / `## 命身与局` / `## 十二宫` / `## 四化` / `## 大限` /
-`## 小限` / `## 童限` / `## 当前运限` / `## 警告` 原样作为排盘结果
+不带 `--format` 时脚本**默认输出 HTML 文件**，文件名自动为
+`紫微斗数命盘_<年干支>年<农历月日><时辰>.html`，写在当前目录：
+
+```bash
+# 默认即 HTML：生成 紫微斗数命盘_甲戌年六月二十午时.html
+python3 scripts/ziwei_pan.py --solar 1994-07-28 --shichen 午 --sex 男 --year 2026
+
+# 指定输出路径与页面标题
+python3 scripts/ziwei_pan.py --solar 1994-07-28 --shichen 午 --sex 男 \
+    --out /tmp/命盘.html --title "张某·紫微斗数命盘"
+```
+
+进度提示与警告走 **stderr**，HTML 内容不混入 stdout，可安全重定向。
+
+### 把判读注入命盘（推荐流程）
+
+判读不要另写 md 交付，而是**写进命盘的五个槽位**。先写一份判读 markdown
+（`## 标题` 分节，标题须与下表一致），再用 `--interpret` 注入：
+
+```bash
+python3 scripts/ziwei_pan.py --solar 1994-07-28 --shichen 午 --sex 男 \
+    --interpret /tmp/判读.md --out /tmp/命盘.html
+```
+
+| 槽位标题（`## ` 后须完全一致） | 内容 |
+|---|---|
+| `一、命身与格局` | 命宫／身宫主星庙陷、三方四正会照、格局判定 |
+| `二、四化与生克` | 生年四化落宫、四化互相牵制、忌星所冲 |
+| `三、十二宫分述` | 逐一论断命、兄、夫、子、财、疾、迁、友、官、田、福、父母十二宫 |
+| `四、运限推演` | 当前大限、小限、流年，以及羊陀迭并、七杀重逢等叠加 |
+| `五、综合论断` | 总评命格高下、宜忌与可行建议 |
+
+标题之外的散文会被忽略；未提供的槽位在页面上留「待补」占位，
+**交付前应尽量把五个槽位都填满**。判读 markdown 支持 `**粗体**`、
+`[[高亮]]`、`[[g:绿色高亮]]`、无序/有序列表、`> 引用`（用于原书判词）。
+
+### 其他输出模式
+
+| 需求 | 用法 |
+|---|---|
+| 只要 HTML（默认） | `--format html`（可省略） |
+| 只要 markdown 文本 | `--format md`（打到 stdout） |
+| 两者都要 | `--format both` |
+| HTML 打到 stdout 而非写文件 | 加 `--stdout-html` |
+
+### 使用 stdout 文本（`--format md` / `both`）
+
+脚本打印的 `## 输入` / `## 命身与局` / `## 十二宫` / `## 四化` / `## 大限` /
+`## 小限` / `## 童限` / `## 当前运限` / `## 警告` 可用作**排盘核对底稿**
 （可再排版，但**宫位、星曜、庙陷、四化、岁数区间不得改**）。
+HTML 与 md 出自同一份计算结果，**两者不得互相矛盾**。
 
 - **安命一错，全盘皆错**：命宫、五行局、紫微三者环环相扣，务必先核对脚本输出再判读。
 - **`## 警告` 必看**：出现「时辰未知」时，时系诸星（文昌、文曲、地空、地劫、火星、铃星、台辅、封诰）不可用，只判其余部分；出现「该日朔落在子夜附近」时，农历换算可能差一日，须提示用户复核。
@@ -279,6 +353,25 @@ python3 scripts/ziwei_pan.py --solar 1990-05-15 --hour 12:00 --sex 男 \
 ### 10. 综合建议
 事业方向、财运趋势、感情婚姻、健康注意、六亲关系。
 **所有判语都应注明出处**（章节号），例如：「据《全书》卷三·女命骨髓赋……」。
+此节对应 HTML 的 `五、综合论断` 槽位。
+
+### 11. 交付 HTML 命盘（必做，不可省略）
+
+把第 1–10 步的判读按前述五个槽位写成 markdown，注入并生成命盘文件：
+
+```bash
+python3 scripts/ziwei_pan.py --solar <生日> --shichen <时> --sex <性别> \
+    --interpret <判读.md> --out <输出.html>
+```
+
+然后用 **`present_files` 把该 `.html` 交给用户**。这是本技能的标准收尾动作。
+
+交付前自检：
+
+- [ ] 文件确实生成，且是 `.html` 而非 `.md`
+- [ ] 五个槽位均已填写（无「待补」占位）
+- [ ] HTML 中的宫位／星曜／四化与 `--format md` 的文本一致
+- [ ] 已用 `present_files` 呈现，而非只贴一段文字结论
 
 ---
 
@@ -460,8 +553,10 @@ python3 scripts/ziwei_pan.py --solar 1990-05-15 --hour 12:00 --sex 男 \
 - [glossary.md](glossary.md) — 全部术语定义，含基本概念、星曜系统、判读术语、运限术语、格局名
 - [patterns.md](patterns.md) — 13 个判读模式，含步骤与权衡
 - [cheatsheet.md](cheatsheet.md) — 决策规则速查、四化表、听人一句话定位、常见误判警示
-- [scripts/ziwei_pan.py](scripts/ziwei_pan.py) — 排盘脚本（零依赖）
+- [scripts/ziwei_pan.py](scripts/ziwei_pan.py) — 排盘脚本（零依赖，**默认产出 HTML 命盘**）
+- [scripts/ziwei_html.py](scripts/ziwei_html.py) — HTML 命盘渲染器（零依赖）
 - [scripts/test_ziwei_pan.py](scripts/test_ziwei_pan.py) — 回归测试与交叉对照
+- [scripts/test_ziwei_html.py](scripts/test_ziwei_html.py) — HTML 渲染回归测试
 
 ---
 

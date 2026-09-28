@@ -67,6 +67,8 @@
 
 import argparse
 import math
+import os
+import re
 import sys
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
@@ -1203,6 +1205,17 @@ def build_parser():
     p.add_argument("--year", type=int, dest="target_year", help="要断的年份（默认今年）")
     p.add_argument("--deceased-year", type=int, dest="deceased_year",
                    help="已故年份，运限只列到该年之前")
+    # ---- 输出格式 ----
+    p.add_argument("--format", choices=("html", "md", "both"), default="html",
+                   dest="fmt",
+                   help="输出格式：html=完整命盘页面（默认，写入文件）；"
+                        "md=markdown 文本（stdout）；both=两者都出")
+    p.add_argument("--out", dest="out", help="HTML 输出路径（默认按命主命名写到当前目录）")
+    p.add_argument("--interpret", dest="interpret",
+                   help="判读 markdown 文件路径，按 `## 标题` 分节注入 HTML 的判读区")
+    p.add_argument("--stdout-html", action="store_true", dest="stdout_html",
+                   help="把 HTML 写到 stdout 而非文件（不落盘）")
+    p.add_argument("--title", dest="title", help="HTML 页面标题（默认自动生成）")
     return p
 
 
@@ -1250,10 +1263,71 @@ def run(argv=None):
         result["info"]["lunar"] = (lunar_arg.year, lunar_arg.month, lunar_arg.day, args.leap)
 
     report = format_report(result)
-    sys.stdout.write(report)
-    if not report.endswith("\n"):
-        sys.stdout.write("\n")
+
+    # ---------------- markdown 输出 ----------------
+    if args.fmt in ("md", "both"):
+        sys.stdout.write(report)
+        if not report.endswith("\n"):
+            sys.stdout.write("\n")
+
+    # ---------------- HTML 输出 ----------------
+    if args.fmt in ("html", "both"):
+        try:
+            import ziwei_html
+        except ImportError:
+            _here = os.path.dirname(os.path.abspath(__file__))
+            if _here not in sys.path:
+                sys.path.insert(0, _here)
+            import ziwei_html
+
+        interp = None
+        if args.interpret:
+            if not os.path.exists(args.interpret):
+                print("判读文件不存在：%s" % args.interpret, file=sys.stderr)
+                return 2
+            with open(args.interpret, "r", encoding="utf-8") as fh:
+                interp = ziwei_html.parse_interpret(fh.read())
+            if not interp:
+                print("提示：判读文件中未识别到任何 `## 标题` 分节，"
+                      "HTML 判读区将留空。可用的标题见 SKILL.md。", file=sys.stderr)
+
+        html = ziwei_html.render_html(result, interpret=interp)
+        if args.title:
+            html = re.sub(r"<title>.*?</title>",
+                          "<title>%s</title>" % args.title.replace("&", "&amp;")
+                          .replace("<", "&lt;"), html, count=1, flags=re.S)
+
+        if args.stdout_html:
+            sys.stdout.write(html)
+            if not html.endswith("\n"):
+                sys.stdout.write("\n")
+        else:
+            out_path = args.out or default_html_name(result)
+            with open(out_path, "w", encoding="utf-8") as fh:
+                fh.write(html)
+            print("HTML 已生成：%s（%.1f KB）"
+                  % (os.path.abspath(out_path), len(html.encode("utf-8")) / 1024.0),
+                  file=sys.stderr)
+            if interp is None:
+                print("提示：未传入 --interpret，判读区为空占位。"
+                      "建议撰写判读 markdown 后用 --interpret 注入，"
+                      "或直接编辑 HTML 的判读区。", file=sys.stderr)
     return 0
+
+
+def default_html_name(result):
+    """默认输出文件名：紫微斗数命盘_<年干支>年<农历月><农历日><时辰>.html
+
+    例：紫微斗数命盘_甲戌年六月二十午时.html
+    """
+    import ziwei_html
+    info = result["info"]
+    ly, lm, ld, leap = info["lunar"]
+    return "紫微斗数命盘_%s年%s%s月%s%s时.html" % (
+        info["year_gan"] + info["year_zhi"],
+        "闰" if leap else "", ziwei_html.format_lunar_month(lm),
+        ziwei_html.format_lunar_num(ld),
+        info["hour_zhi"])
 
 
 def main():

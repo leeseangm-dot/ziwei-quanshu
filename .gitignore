@@ -6,3 +6,10 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# 打包产物（GitHub 自带 zip 下载，不必入库）
+ziwei-quanshu.zip
+*.zip
+
+# 排盘生成物
+紫微斗数命盘_*.html
