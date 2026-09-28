@@ -3,6 +3,8 @@
 ![Python](https://img.shields.io/badge/Python-Stdlib%20Only-3776AB)
 ![Vendor](https://img.shields.io/badge/Vendor-Neutral-informational)
 
+**中文** | [English](README.en.md)
+
 # 紫微斗数全书 Skill
 
 以明刊本《紫微斗数全书》（托名宋·陈抟，明·罗洪先序，嘉靖庚戌 1550）为判读根基的紫微斗数排盘与判盘工具。
@@ -274,15 +276,16 @@ ziwei-quanshu/
 ├── patterns.md                     # 判读模式
 ├── cheatsheet.md                   # 断命速查表
 ├── LICENSE
-└── README.md
+├── README.md                       # 说明（中文）
+└── README.en.md                    # 说明（English）
 ```
 
 ## 验证
 
 ```bash
-python3 scripts/test_ziwei_pan.py            # 经典口诀锚点（132 项断言）
+python3 scripts/test_ziwei_pan.py            # 经典口诀锚点（137 项断言）
 python3 scripts/test_ziwei_pan.py --cross    # 另加与外部排盘库的交叉对照
-python3 scripts/test_ziwei_html.py           # HTML 渲染回归（184 项断言）
+python3 scripts/test_ziwei_html.py           # HTML 渲染回归（189 项断言）
 ```
 
 `test_ziwei_html.py` 覆盖：4×4 宫格方位、十二宫齐全、主星/辅佐/杂曜分级、

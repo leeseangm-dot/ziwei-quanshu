@@ -367,20 +367,49 @@ def test_md_html_parity():
 
 
 # ---------------------------------------------------------------------------
-# 9. 文档一致性：README 承诺的断言数必须与实际相符
+# 9. 文档一致性：README（含英文版）承诺的断言数必须与实际相符
 # ---------------------------------------------------------------------------
 
+# (文件名, 该文件中「HTML 渲染测试断言数」的标注正则)
+README_HTML_COUNT = [
+    ("README.md", r"test_ziwei_html\.py\s*#\s*HTML 渲染回归（(\d+) 项断言）"),
+    ("README.en.md", r"test_ziwei_html\.py\s*#\s*HTML rendering regression \((\d+) assertions\)"),
+]
+
+
 def test_readme_assertion_count():
-    readme = os.path.join(os.path.dirname(HERE), "README.md")
-    if not os.path.exists(readme):
+    root = os.path.dirname(HERE)
+    # 必须在任何断言之前取基准值。若放在中途取，前面已计入的断言会被重复加，
+    # 预测值偏高，反而可能与被测的错误数字「对上」而给出假绿。
+    base = CHECKS[0]
+    entries = []
+    for fname, pat in README_HTML_COUNT:
+        path = os.path.join(root, fname)
+        # 硬性要求：缺文件即失败。若用 exists() 静默跳过，
+        # 文件被删/漏提交时自检会悄悄失效——正是本自检要防的失真。
+        ok("%s 存在" % fname, os.path.exists(path), "文件缺失")
+        if os.path.exists(path):
+            entries.append((fname, open(path, encoding="utf-8").read(), pat))
+    if not entries:
         return
-    txt = open(readme, encoding="utf-8").read()
-    m = re.search(r"test_ziwei_html\.py\s*#\s*HTML 渲染回归（(\d+) 项断言）", txt)
-    ok("README 标注了 HTML 测试断言数", bool(m), "未找到断言数标注")
-    if m:
-        claimed = int(m.group(1))
-        actual = CHECKS[0] + 1        # +1：本条断言自身
-        check("README 断言数与实际一致", claimed, actual)
+
+    # 本函数自身会新增的断言数（含上面 2 条「存在」）：
+    #   每份 README 3 条（存在 + 有标注 + 数一致）+ 多语言 1 条互一致
+    K = 3 * len(entries) + (1 if len(entries) > 1 else 0)
+    predicted_total = base + K
+
+    claims = {}
+    for fname, txt, pat in entries:
+        m = re.search(pat, txt)
+        ok("%s 标注了 HTML 测试断言数" % fname, bool(m), "未找到断言数标注")
+        n = int(m.group(1)) if m else -1
+        claims[fname] = n
+        check("%s 断言数与实际一致" % fname, n, predicted_total)
+
+    # 多语言版本之间也必须一致，否则必然有一版在说谎
+    if len(entries) > 1:
+        check("各语言 README 断言数互相一致",
+              len({v for v in claims.values() if v > 0}), 1)
 
 
 def main():

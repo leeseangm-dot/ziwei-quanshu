@@ -408,15 +408,42 @@ def test_cross_iztro(rounds=40, seed=20260928):
 
 
 def test_readme_assertion_count():
-    """README 承诺的断言数必须与实际相符（与 test_ziwei_html.py 同一自检思路）。"""
-    readme = os.path.join(os.path.dirname(HERE), "README.md")
-    if not os.path.exists(readme):
+    """各语言 README 承诺的断言数必须与实际相符（与 test_ziwei_html.py 同一自检思路）。"""
+    root = os.path.dirname(HERE)
+    # 必须在任何断言之前取基准值。若放在中途取，前面已计入的断言会被重复加，
+    # 预测值偏高，反而可能与被测的错误数字「对上」而给出假绿。
+    base = CHECKS[0]
+    pats = [
+        ("README.md", r"test_ziwei_pan\.py\s*#\s*经典口诀锚点（(\d+) 项断言）"),
+        ("README.en.md",
+         r"test_ziwei_pan\.py\s*#\s*classic verse anchors \((\d+) assertions\)"),
+    ]
+    entries = []
+    for fname, pat in pats:
+        path = os.path.join(root, fname)
+        # 硬性要求：缺文件即失败（静默跳过会让自检悄悄失效）
+        check("%s 存在" % fname, os.path.exists(path), True)
+        if os.path.exists(path):
+            entries.append((fname, open(path, encoding="utf-8").read(), pat))
+    if not entries:
         return
-    txt = open(readme, encoding="utf-8").read()
-    m = re.search(r"test_ziwei_pan\.py\s*#\s*经典口诀锚点（(\d+) 项断言）", txt)
-    check("README 标注了排盘测试断言数", bool(m), True)
-    if m:
-        check("README 排盘断言数与实际一致", int(m.group(1)), CHECKS[0] + 1)
+
+    # 本函数新增断言数（含上面 2 条「存在」）：
+    #   每份 README 3 条 + 多语言 1 条互一致
+    K = 3 * len(entries) + (1 if len(entries) > 1 else 0)
+    predicted_total = base + K
+
+    claims = {}
+    for fname, txt, pat in entries:
+        m = re.search(pat, txt)
+        check("%s 标注了排盘测试断言数" % fname, bool(m), True)
+        n = int(m.group(1)) if m else -1
+        claims[fname] = n
+        check("%s 排盘断言数与实际一致" % fname, n, predicted_total)
+
+    if len(entries) > 1:
+        check("各语言 README 排盘断言数互相一致",
+              len({v for v in claims.values() if v > 0}), 1)
 
 
 def main():
