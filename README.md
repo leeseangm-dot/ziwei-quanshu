@@ -1,7 +1,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![WorkBuddy](https://img.shields.io/badge/WorkBuddy-Skill-blueviolet)
 ![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)
 ![Python](https://img.shields.io/badge/Python-Stdlib%20Only-3776AB)
+![Vendor](https://img.shields.io/badge/Vendor-Neutral-informational)
 
 # 紫微斗数全书 Skill
 
@@ -16,20 +16,74 @@
 
 ## 安装
 
-> **注意**：WorkBuddy 从 skills 目录查找 skill，请在正确的位置执行。本机需已安装 `python3`（3.6+，只用标准库，**无需 pip 安装任何第三方包**）。
+本技能遵循 **Agent Skills 开放规范**（一个目录一个 skill，`SKILL.md` + YAML frontmatter +
+可选 `scripts/` `references/`），因此**不绑定任何特定 AI 工具** —— 只要是能读取 skill 目录的
+客户端都能用。
+
+> 前置条件：本机已安装 `python3`（3.6+）。排盘脚本**只用标准库，无需 pip 安装任何第三方包**。
+
+### 方式一：通用目录（推荐，多个工具共享同一份）
+
+`.agents/skills/` 是跨客户端约定路径，Codex、Cursor、GitHub Copilot、Gemini CLI、
+OpenCode、Amp、Kimi CLI、Replit 等均会扫描：
 
 ```bash
-# 安装到全局（所有项目都能用）
-git clone https://github.com/leeseangm-dot/ziwei-quanshu.git ~/.workbuddy/skills/ziwei-quanshu
+# 用户级（所有项目可用）
+git clone https://github.com/leeseangm-dot/ziwei-quanshu.git ~/.agents/skills/ziwei-quanshu
 
-# 或安装到当前项目（项目级，团队共享）
-mkdir -p .workbuddy/skills
-git clone https://github.com/leeseangm-dot/ziwei-quanshu.git .workbuddy/skills/ziwei-quanshu
+# 项目级（随仓库提交，团队共享）
+mkdir -p .agents/skills
+git clone https://github.com/leeseangm-dot/ziwei-quanshu.git .agents/skills/ziwei-quanshu
 ```
+
+### 方式二：各客户端专用目录
+
+若所用工具只认自家目录，把仓库 clone 到对应位置即可（**内容无需任何改动**）：
+
+| 客户端 | 用户级目录 | 项目级目录 |
+|---|---|---|
+| WorkBuddy | `~/.workbuddy/skills/` | `.workbuddy/skills/` |
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Codex | `~/.codex/skills/` | `.agents/skills/` |
+| Cursor | `~/.cursor/skills/` | `.cursor/skills/` |
+| GitHub Copilot | `~/.copilot/skills/` | `.github/skills/` |
+| Gemini CLI | `~/.gemini/skills/` | `.gemini/skills/` |
+| Cline / Roo Code | `~/.cline/skills/` | `.cline/skills/` |
+| Trae / Trae CN | `~/.trae/skills/` | `.trae/skills/` |
+| Qwen Code | `~/.qwen/skills/` | `.qwen/skills/` |
+
+例（WorkBuddy）：
+
+```bash
+git clone https://github.com/leeseangm-dot/ziwei-quanshu.git ~/.workbuddy/skills/ziwei-quanshu
+```
+
+> **多工具共用**：若已按方式一装到 `~/.agents/skills/`，可用软链接让只认专用目录的工具也能发现，
+> 避免维护多份副本：
+> ```bash
+> ln -s ~/.agents/skills/ziwei-quanshu ~/.workbuddy/skills/ziwei-quanshu   # macOS / Linux
+> # Windows（管理员 PowerShell）：
+> # New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.workbuddy\skills\ziwei-quanshu" `
+> #   -Target "$env:USERPROFILE\.agents\skills\ziwei-quanshu"
+> ```
+
+### 方式三：无法识别 skill 的客户端
+
+若所用工具不支持 skill 目录（如豆包等纯对话式产品），**脚本仍可独立使用** ——
+排盘部分不依赖任何 AI，直接命令行调用即可：
+
+```bash
+git clone https://github.com/leeseangm-dot/ziwei-quanshu.git
+cd ziwei-quanshu
+python3 scripts/ziwei_pan.py --solar 1990-05-15 --shichen 午 --sex 男
+```
+
+把输出的报告内容贴给该工具，同样可以让它做判读。知识库部分（`chapters/` `patterns.md`
+`cheatsheet.md`）是纯 Markdown，也可直接作为参考资料投喂。
 
 ## 使用
 
-在 WorkBuddy 中输入以下任意关键词即可触发：
+在支持 skill 的客户端（WorkBuddy / Claude Code / Codex / Cursor 等）中输入以下任意关键词即可触发：
 
 `紫微斗数` `紫微` `斗数` `紫微命盘` `排紫微盘` `看紫微` `命宫` `身宫` `十二宫` `四化` `庙旺落陷` `大限流年` `ziwei`
 
@@ -68,8 +122,8 @@ python3 scripts/ziwei_pan.py --lunar 2020-04-01 --leap --hour 12:00 --sex 女  #
 
 | 分歧点 | 《全书》口径（默认） | 通行做法 | 开关 |
 |---|---|---|---|
-| 大限起宫 | 自命宫起 | 自命宫起（部分流派自身宫） | `--daxian` |
-| 闰月安命 | 闰月作下月论 | 闰月分半（前半月作本月、后半月作下月） | `--leap-policy` |
+| 大限起宫 | 阳男阴女起**父母宫**顺行；阴男阳女起**兄弟宫**逆行 | 多数排盘软体自**命宫**起 | `--daxian` |
+| 闰月安命 | 闰月作**下一月**论 | 闰月**分半**（前半月作本月、后半月作下月） | `--leap-policy` |
 | 年柱分界 | 立春**精确时刻** | 立春**当日**即换 | `--year-divide` |
 
 > 与外部排盘软体（iztro 等）对盘时需同时切换三个开关，否则盘会整体错位：

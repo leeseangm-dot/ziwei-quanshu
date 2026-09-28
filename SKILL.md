@@ -1,6 +1,8 @@
 ---
 name: ziwei-quanshu
 description: "紫微斗数排盘与判盘。以明刊本《紫微斗数全书》（托名宋·陈抟，明·罗洪先序）为判读根基，通过交互式步骤收集出生信息，用零依赖脚本排出十二宫盘（安身命、五行局、起紫微、十四主星与诸星、四化、庙旺落陷、大限小限童限流年），再依原书断语与格局判读。适用于排盘（安身命、定五行局、起紫微、安星诀）、判盘（十二宫断语、庙旺落陷、四化生克、格局识别）、运限（大限小限流年、羊陀迭并、七杀重逢）与查阅经典判词原文。Use this skill whenever the user asks for 紫微斗数、紫微、斗数、紫微命盘、排紫微盘、看紫微、紫微斗数排盘、命宫、身宫、十二宫、四化、庙旺落陷、大限、小限、流年、命主、身主、斗数算命、ziwei、Zi Wei Dou Shu、Purple Star Astrology, or wants a 紫微斗数 chart built or judged. Triggers: \"排紫微盘\", \"看紫微\", \"紫微斗数\", \"斗数\", \"紫微命盘\", \"帮我排个紫微盘\", \"分析紫微\", \"看命宫\", \"大限流年\", \"紫微斗数全书\". 即使只提到「紫微」「斗数」而未明确说要用 skill，也应使用此 skill。"
+license: MIT
+compatibility: "Any Agent Skills-compatible client. Requires python3 3.6+ on PATH; standard library only, no pip packages."
 
 # 以下为 Claude Code 风格的参数提示，保留以兼容
 argument-hint: "[出生信息 / 主题 / 格局名 / 宫位 / 章节号]"
