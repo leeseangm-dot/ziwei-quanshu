@@ -128,7 +128,7 @@ ziwei-quanshu/
 ## 验证
 
 ```bash
-python3 scripts/test_ziwei_pan.py            # 经典口诀锚点（105 项断言）
+python3 scripts/test_ziwei_pan.py            # 经典口诀锚点（116 项断言）
 python3 scripts/test_ziwei_pan.py --cross    # 另加与外部排盘库的交叉对照
 ```
 
@@ -141,6 +141,7 @@ python3 scripts/test_ziwei_pan.py --cross    # 另加与外部排盘库的交叉
 - 闰月判定的**日粒度**（朔与中气同日时最易错）
 - 年柱分界的**时刻粒度**（立春当刻前后属不同年）
 - 紫微定位的「商数宫前走，补数奇退偶进」
+- 南北斗应期按**阳男阴女／阴男阳女**配对（同性为南斗，异性为北斗），非按男女单边
 
 ## 免责声明
 

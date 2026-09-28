@@ -147,6 +147,29 @@ def test_daxian_direction():
     check("阳女大限首宫在命后一宫", r2["yun"]["daxian"][0]["palace"], "兄弟")
 
 
+def test_nandou_yingqi():
+    """南北斗应期：阳男阴女南斗为福（下五年/下半年）；阴男阳女北斗为福（上五年/上半年）。
+
+    依《全书》卷三 ch15 第四节「行限分南北斗」。
+    四种阴阳男女组合各验一次，防止把「同性配对」误写成「异性配对」。
+    """
+    cases = [
+        (date(1990, 5, 15), "男", "南斗", "阳男"),   # 庚午阳年男
+        (date(1990, 5, 15), "女", "北斗", "阳女"),
+        (date(1991, 5, 15), "男", "北斗", "阴男"),   # 辛未阴年男
+        (date(1991, 5, 15), "女", "南斗", "阴女"),
+    ]
+    for d, sex, want_dou, label in cases:
+        r = zp.build(d, hour=12, sex=sex)
+        report = zp.format_report(r)
+        line = [l for l in report.splitlines() if "南北斗应期" in l]
+        check("%s 有南北斗应期一行" % label, len(line), 1)
+        check("%s 南北斗为福" % label, want_dou in line[0], True)
+        # 上/下半年必须与斗分一致，不能只报斗分
+        want_span = "下五年" if want_dou == "南斗" else "上五年"
+        check("%s 应期年段" % label, want_span in line[0], True)
+
+
 def test_baseline_chart():
     """基准盘：1990-05-15 午时 男（庚午年四廿一）——与 iztro 一致的定值。"""
     r = zp.build(date(1990, 5, 15), hour=12, sex="男")
@@ -314,6 +337,7 @@ def main():
     test_ming_shen()
     test_xiaoxian_start()
     test_daxian_direction()
+    test_nandou_yingqi()
     test_baseline_chart()
     test_double_star_pairs()
 
